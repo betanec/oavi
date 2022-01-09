@@ -10,10 +10,11 @@ from matplotlib.patches import Rectangle
 import numpy as np
 import pandas as pd
 from collections.abc import Iterable 
+import random
 
 
 
-alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"#sys.argv[1]
+alphabet = sys.argv[1]
 
 BLACK = (0,0,0)
 WHITE = (255,255,255)
@@ -143,11 +144,14 @@ def distance(s0:pd.Series, s1:pd.Series):
 
 
 def main():
-    height = [ 15]
-    fonts = ["EspacioCuadrado-6526.ttf", "Banbury-65Aq.ttf", "DunnoFinedRegular-0zDr.ttf"]
+    height = [30]
+    fonts = ["d9464-arkhip_font.ttf"]
 
     threshould = [0.95, 0.6]
     space = 4
+
+    text_line = ''.join([random.choice(alphabet) for i in range(50)])
+    print(text_line)
 
     base_directory = "pics"
     if not os.path.exists(base_directory):
@@ -158,7 +162,7 @@ def main():
         os.makedirs(char_directory)
 
 
-    base_h = 12
+    base_h = 30
     base_fnt = ImageFont.truetype(f"C:\\DEV\\oavi\\font\\{fonts[0]}", base_h)
     base_data = pd.DataFrame({cl_name:[] for cl_name, _ in header_names})
     for idx, char in enumerate(progress.bar(alphabet)):
@@ -167,6 +171,9 @@ def main():
         d = ImageDraw.Draw(img)
         d.text((0,0), char, font=base_fnt, fill=BLACK)
         
+        rects = []
+        left_x = 0
+        prev_y = None
         pixs = img.load()
         top_y = 0
         end_loop = False
@@ -179,12 +186,40 @@ def main():
             if end_loop:
                 break
 
-        img = img.crop((0, top_y, img.size[0], img.size[1]))
+        #img = img.crop((0, top_y, img.size[0], img.size[1]))
         img.save(f"{char_directory}/{idx}.png")
 
+        x_prof, y_prof = get_profile(img)
+        for x, y in enumerate(progress.bar(x_prof)):
+            y = img.size[1] - y
+            if prev_y is None:
+                prev_y = y
+                continue
+            if y > threshould[0] and prev_y <= threshould[0]:
+                left_x = x
+            elif y <= threshould[0] and prev_y > threshould[0]:
+                tmp_r = Rect(start=(left_x, 0,), end=(x, img.size[1],))
+
+                _, curr_y_prof = get_profile(img, r=tmp_r)
+                top_y = 0
+                bottom_y = img.size[1]
+                prev_x = None
+                for curr_y, curr_x in enumerate(curr_y_prof):
+                    if prev_x is None:
+                        prev_x = curr_x
+                        continue
+                    if curr_x > threshould[1] and prev_x <= threshould[1]:
+                        top_y = curr_y
+                    elif curr_x <= threshould[1] and prev_x > threshould[1]:
+                        bottom_y = curr_y
+                    prev_x = curr_x
+                res_r = Rect(start=(left_x-1, top_y-1,), end=(x, bottom_y,))
+                rects.append(res_r)
+            prev_y = y
+        rects.append(Rect(start=(0,0),end=img.size))
         row = pd.Series(name=char)
         for col, (col_name, func) in enumerate(header_names):
-            row = row.append(pd.Series({col_name:func(img, row)}))
+            row = row.append(pd.Series({col_name:func(img, row, r=rects[0])}))
         row.name = char
         base_data = base_data.append(row)
 
@@ -198,9 +233,9 @@ def main():
 
         fnt = ImageFont.truetype(f"C:\\DEV\\oavi\\font\\{fonts[0]}", h)
 
-        img = Image.new('RGB', (space+fnt.getsize(alphabet)[0]+space, space+h+space+space), color = WHITE)
+        img = Image.new('RGB', (space+fnt.getsize(text_line)[0]+space, space+h+space), color = WHITE)
         d = ImageDraw.Draw(img)
-        d.text((space, space), alphabet, font=fnt, fill=BLACK)
+        d.text((space, space), text_line, font=fnt, fill=BLACK)
         img.save(f'{directory}/base.png')
 
 
@@ -216,7 +251,6 @@ def main():
         prev_y = None
         for x, y in enumerate(progress.bar(x_prof)):
             y = img.size[1] - y
-            #print(x, y)
             if prev_y is None:
                 prev_y = y
                 continue
@@ -245,7 +279,7 @@ def main():
             prev_y = y
         f.savefig(f'{directory}/{h}_seg.png')
         plt.close(f)
-        
+
 
         
         print('rects')
@@ -270,7 +304,7 @@ def main():
             tmp_row = pd.Series()
             for i, val in enumerate(prep_row[:10]):
                 tmp_row = tmp_row.append(pd.Series({i:(prep_row.index[i], np.round(val,2))}))
-            tmp_row.name = alphabet[idx%len(alphabet)]
+            tmp_row.name = text_line[idx]
             data_to_print = data_to_print.append(tmp_row)
         data_to_print.to_csv(f'{directory}/res_data_{h}.csv')
         print(data_to_print)
@@ -285,6 +319,3 @@ def main():
 if __name__ == "__main__":
     print(alphabet)
     main()
-
-
-

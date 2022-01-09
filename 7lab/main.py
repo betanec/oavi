@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import numpy as np
 import pandas as pd
-from collections.abc import Iterable
+from collections.abc import Iterable 
 
 
 
@@ -49,10 +49,12 @@ def Haralic_matrix(name:str, mono_img:Image, d:int, phi:tuple):
     res = np.zeros((WHITE[0]+1, WHITE[0]+1))
     hist = np.zeros(WHITE[0]+1)
     func = create_apply_func(d=d, phi=phi)
+    max_max = 0
     for pos, (val, row) in progress.bar(pixel_gen(mono_img, func), expected_size=mono_img.size[0]*mono_img.size[1]):
         res[val] += row
+        max_max = max(max_max, max(row))
         hist[val] += 1
-    res_img = Image.fromarray(np.uint8(res))
+    res_img = Image.fromarray(np.uint8(res*255/max_max))
     res_img.save(f"{name}_matrix.jpg", "JPEG")
     return (res_img, hist)
 
@@ -81,7 +83,7 @@ def calc_params(h_img:Image, hist:np.array):
     return res_s 
 
 
-def pow_transform(img:Image, _:np.array, c=1, f0=0, y=0.5):#1,0,05
+def pow_transform(img:Image, _:np.array, c=1, f0=0, y=0.5):
     res_img = img.copy()
     d = ImageDraw.Draw(res_img)
     for pos, pixel in pixel_gen(img):
@@ -91,7 +93,7 @@ def pow_transform(img:Image, _:np.array, c=1, f0=0, y=0.5):#1,0,05
         d.point(pos, (p,p,p))
     return res_img
 
-def log_transform(img:Image, hist:np.array, L=3):#L=8 много налдо менять до 4
+def log_transform(img:Image, hist:np.array, L=8):
     res_img = img.copy()
     d = ImageDraw.Draw(res_img)
     s = np.sum(hist)
@@ -171,5 +173,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
